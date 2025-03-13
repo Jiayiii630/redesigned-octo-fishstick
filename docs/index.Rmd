@@ -1,0 +1,147 @@
+---
+title: "Urbanmetry DataCaseStudy"
+author: "Ang Jia Yi"
+date: "2025-03-12"
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: true
+    theme: cerulean
+  pdf_document: default
+  word_document: default
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(ggplot2)
+library(readxl)
+library(tidyr)
+library(zoo)
+library(ggthemes)
+```
+
+```{r}
+# import data
+data <- read_excel("C:/Users/User/Downloads/DataCaseStudy.xlsx", sheet = "Q2 data")
+
+# remove duplicated columns
+data <- data[, 1:11]
+
+# rename columns
+data <- janitor::clean_names(data)
+
+data <- data %>% 
+  rename(property_building_category = property_building_category_2,
+         property_building_type = property_building_type_3)
+```
+```{r}
+# create new columns for median and mean price psf, median valuation price
+data <- data %>% 
+    group_by(quarter, name) %>% 
+    mutate(median_price_psf = median(built_up_price_psf),
+           median_valuation_price = median(valuation_price),
+           average_price_psf = mean(built_up_price_psf))
+
+
+
+# ensure year and quarter are labelled correctly
+data <- data %>%
+  mutate(year = as.numeric(substr(quarter, 1, 4)),
+         quarter = as.numeric(substr(quarter, 5, 5))) 
+```
+
+```{r}
+# create a complete dataset with all quarters for each building
+complete_data <-  data %>%
+  ungroup() %>% 
+  complete(year, quarter, name)
+
+# only extract each unique combination of year, quarter and name
+complete_data_distinct <- complete_data %>% 
+  distinct(year, quarter, name, .keep_all = T)
+
+# create a proper year-quarter variable
+complete_data_distinct <- complete_data_distinct %>%
+  mutate(yearqtr = as.yearqtr(paste(year, quarter, sep = "-")))
+
+# list down the 3 selected buildings
+selected_buildings <-  c("HARBOURVIEW", "FLAT JALAN AMAN", "LILY POINT")
+```
+
+# Q2.1
+```{r}
+# plot the average price psf over time from 20161 to 20192
+# renamed x variable (eg: 2019-Q1 refers to Year 2019, Quarter 1)
+complete_data_distinct %>% 
+  filter(yearqtr >= "2016 Q1", 
+         yearqtr <= "2019 Q2", 
+         name %in% selected_buildings) %>% 
+  ggplot(aes(x = yearqtr, y = average_price_psf, color = name, group = name)) +
+  geom_line(na.rm = T) +
+  geom_point(na.rm = T) +
+  scale_x_yearqtr(format = "%Y-Q%q", 
+                  breaks = seq(min(complete_data_distinct$yearqtr), 
+                               max(complete_data_distinct$yearqtr), 
+                               by = 0.25)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +  
+  labs(x = "TIME",
+       y = "AVERAGE PRICE PSF (RM)",
+       title = "AVERAGE PRICE PSF OVER TIME")
+
+# save graph
+ggsave("average_price_psf.png")
+```
+
+# Q2.2
+```{r}
+# plot the median price psf over time from 20161 to 20192
+complete_data_distinct %>% 
+  filter(yearqtr >= "2016 Q1", 
+         yearqtr <= "2019 Q2",
+         name %in% selected_buildings) %>% 
+  ggplot(aes(x = yearqtr, y = median_price_psf, color = name, group = name)) +
+  geom_line(na.rm = T) +
+  geom_point(na.rm = T) +
+  scale_x_yearqtr(format = "%Y-Q%q", 
+                  breaks = seq(min(complete_data_distinct$yearqtr), 
+                               max(complete_data_distinct$yearqtr), 
+                               by = 0.25)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +  
+  labs(x = "TIME",
+       y = "MEDIAN PRICE PSF (RM)",
+       title = "MEDIAN PRICE PSF OVER TIME")
+
+# save graph
+ggsave("median_price_psf.png")
+```
+
+# Q2.3
+```{r}
+# plot the median valuation price over time from 20161 to 20192
+complete_data_distinct %>% 
+  filter(yearqtr >= "2016 Q1", 
+         yearqtr <= "2019 Q2",
+         name %in% selected_buildings) %>% 
+  ggplot(aes(x = yearqtr, y = median_valuation_price, color = name, group = name)) +
+  geom_line(na.rm = T) +
+  geom_point(na.rm = T) +
+  scale_x_yearqtr(format = "%Y-Q%q", 
+                  breaks = seq(min(complete_data_distinct$yearqtr), 
+                               max(complete_data_distinct$yearqtr), 
+                               by = 0.25)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +  
+  labs(x = "TIME",
+       y = "MEDIAN VALUATION PRICE (RM)",
+       title = "MEDIAN VALUATION PRICE OVER TIME")
+
+# save graph
+ggsave("median_valuation_price.png")
+```
+
+
